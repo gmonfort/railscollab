@@ -24,14 +24,6 @@ class CommentsController < ApplicationController
   before_filter :obtain_comment, :except => [:index, :new, :create]
   after_filter  :user_track, :only => [:index, :show]
   
-  COMMENT_ROUTE_MAP = {
-    :message_id => :ProjectMessage,
-    :milestone_id => :ProjectMilestone,
-    :file_id => :ProjectFile,
-    :task_id => :ProjectTask,
-    :task_list_id => :ProjectTaskList
-  }
-  
   # GET /comments
   # GET /comments.xml
   def index
@@ -256,10 +248,11 @@ class CommentsController < ApplicationController
 private
 
   def find_comment_object
-    COMMENT_ROUTE_MAP.keys.each do |key|
-      value = params[key]
+    rmap = comment_route_map
+    rmap.each do |rtc|
+      value = params[rtc[0]]
       if !value.nil?
-        return Kernel.const_get(COMMENT_ROUTE_MAP[key]) || nil, params[key].to_i
+        return Kernel.const_get(rtc[1]) || nil, value.to_i
       end
     end
     
@@ -278,6 +271,14 @@ private
     end
 
     true
+  end
+  
+  def comment_route_map
+    [[:message_id, :ProjectMessage],
+     [:milestone_id, :ProjectMilestone],
+     [:file_id, :ProjectFile],
+     [:task_id, :ProjectTask],
+     [:task_list_id, :ProjectTaskList]]
   end
 
 end
