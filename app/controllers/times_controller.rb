@@ -80,9 +80,7 @@ class TimesController < ApplicationController
 
     @time = @active_project.project_times.build
     @open_task_lists = @active_project.project_task_lists.open(@logged_user.member_of_owner?)
-    @open_task_lists.each do |task_list|
-      task_list.project_tasks.reject! {|task| task.is_completed?}
-    end
+    @task_filter = Proc.new {|task| task.is_completed? }
   end
   
   def create
@@ -96,6 +94,8 @@ class TimesController < ApplicationController
     
     respond_to do |format|
       if @time.save
+        add_running_time(@time)
+        
         format.html {
           error_status(false, :success_added_time)
           redirect_back_or_default(@time)
@@ -104,9 +104,7 @@ class TimesController < ApplicationController
         format.xml  { render :xml => @time.to_xml(:root => 'time'), :status => :created, :location => @time }
       else
         @open_task_lists = @active_project.project_task_lists.open(@logged_user.member_of_owner?)
-        @open_task_lists.each do |task_list|
-          task_list.project_tasks.reject! {|task| task.is_completed?}
-        end
+        @task_filter = Proc.new {|task| task.is_completed? }
         format.html { render :action => "new" }
         format.js {}
         format.xml  { render :xml => @time.errors, :status => :unprocessable_entity }
@@ -119,9 +117,7 @@ class TimesController < ApplicationController
 
     @open_task_lists = @active_project.project_task_lists.open(@logged_user.member_of_owner?)
     @open_task_lists << @time.project_task_list unless @time.project_task_list.nil? || @open_task_lists.include?(@time.project_task_list)
-    @open_task_lists.each do |task_list|
-      task_list.project_tasks.reject! {|task| task.is_completed? && task != @time.project_task }
-    end
+    @task_filter = Proc.new {|task| task.is_completed? && task != @time.project_task}
   end
 
   def update
@@ -141,9 +137,7 @@ class TimesController < ApplicationController
       else
         @open_task_lists = @active_project.project_task_lists.open(@logged_user.member_of_owner?)
         @open_task_lists << @time.project_task_list unless @time.project_task_list.nil? || @open_task_lists.include?(@time.project_task_list)
-        @open_task_lists.each do |task_list|
-          task_list.project_tasks.reject! {|task| task.is_completed? && task != @time.project_task }
-        end
+        @task_filter = Proc.new {|task| task.is_completed? && task != @time.project_task}
         format.html { render :action => "edit" }
         format.js {}
         format.xml  { render :xml => @time.errors, :status => :unprocessable_entity }
@@ -159,6 +153,8 @@ class TimesController < ApplicationController
     @time.updated_by = @logged_user
     @time.save
     
+    remove_running_time(@time)
+    
     respond_to do |format|
       format.html {
         error_status(false, :success_stopped_time)
@@ -172,7 +168,9 @@ class TimesController < ApplicationController
 
   def destroy
     return error_status(true, :insufficient_permissions) unless (@time.can_be_deleted_by(@logged_user))
-
+    
+    remove_running_time(@time)
+    
     @time.updated_by = @logged_user
     @time.destroy
 
@@ -208,5 +206,14 @@ private
     @sort_type = params[:orderBy]
     @sort_type = 'created_on' unless ['done_date', 'hours'].include?(params[:orderBy])
     @sort_order = 'DESC'
+  end
+  
+  def add_running_time(time)
+    @running_times.each { |chk| return if chk.id == time.id }
+    @running_times << time
+  end
+  
+  def remove_running_time(time)
+    @running_times.reject! { |chk| chk.id == time.id ? true : false }
   end
 end

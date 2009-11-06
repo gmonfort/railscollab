@@ -211,7 +211,7 @@ class User < ActiveRecord::Base
   end
 
   def can_be_viewed_by(user)
-    user.member_of_owner? or user.company_id == self.id or self.member_of_owner?
+    user.member_of_owner? or user.company_id == self.company_id or self.member_of_owner?
   end
 
   # Specific permissions
@@ -311,7 +311,7 @@ class User < ActiveRecord::Base
 
   def avatar_url
     if !avatar?
-      "/themes/#{AppConfig.site_theme}/images/avatar.gif"
+      "http://gravatar.com/avatar/#{Digest::MD5.hexdigest email}?s=50&d=" + URI.encode("#{AppConfig.site_url}/themes/#{AppConfig.site_theme}/images/avatar.gif")
     else
       avatar.url(:thumb)
     end

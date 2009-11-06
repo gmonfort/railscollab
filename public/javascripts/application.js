@@ -144,6 +144,13 @@ function bindDynamic() {
         var form = $(this);
         form.request(JustRebind, 'script');
         form.reset();
+
+        //set task list back to edit mode when new task is added (otherwise new item will be in edit mode, and rest will be in reorder mode)
+        var list = form.parents('.taskList:first');
+        if(list.hasClass('reorder')) {
+          list.find('.doEditTaskList').click();
+        }
+
         return false;
       });
       
@@ -197,13 +204,10 @@ function bindDynamic() {
         return false;
       });
       
-      $('.taskList .taskDelete').each(function() {
-        this.onclick_fn = this.onclick;
-        this.onclick = null;
-      });
       $('.taskList .taskDelete').click(function(evt) {
-        if (this.onclick_fn())
-          $.del(this.href, null, JustRebind, 'script');
+        var el = $(this);
+        if (confirm(el.attr('aconfirm')))
+           $.del(this.href, null, JustRebind, 'script');
         
         return false;
       });
@@ -287,6 +291,28 @@ function bindDynamic() {
 
         return false;
       });
+
+      // Start & stop time
+
+      $('.startTime').click(function(evt) {
+        var el = $(this);
+        $.post(Project.buildUrl('/times'), {
+            'time[open_task_id]': el.attr('task_id'),
+            'time[assigned_to_id]': LOGGED_USER_ID,
+        }, JustRebind, 'script');
+        
+        return false;
+      });
+
+      $('.stopTime').click(function(evt) {
+        var el = $(this);
+        $.put(el.attr('href'), {
+            'time[open_task_id]': el.attr('task_id'),
+            'time[assigned_to_id]': LOGGED_USER_ID,
+        }, JustRebind, 'script');
+
+        return false;
+      });
 }
 
 function JustReload(data) {
@@ -310,7 +336,8 @@ function rebindDynamic() {
   $('.taskItem form').unbind();
   $('.taskItem form .cancel').unbind();
   $('.taskList .completion').unbind();
-  $('.taskList .itemDelete').unbind();
+  $('.taskList .taskEdit').unbind();
+  $('.taskList .taskDelete').unbind();
   
   $('.doSortTaskList').unbind();
   $('.doEditTaskList').unbind();
@@ -319,13 +346,27 @@ function rebindDynamic() {
   $('#action_dialog a.cancel').unbind();
 
   $('a.oaction').unbind();
+
+  $('.startTime').unbind();
+  $('.stopTime').unbind();
   
   bindDynamic();
 }
 
 var Project = {
   buildUrl: function(resource) {
-    return ('/project' + PROJECT_ID + resource);
+    return ('/projects/' + PROJECT_ID + resource);
+  },
+
+  updateRunningTimes: function(size, locale) {
+    $('#running_times_count span').html(locale);
+    
+    if (size > 0)
+      $('#running_times_count').show();
+    else {
+      $('#running_times_count').hide();
+      $('#running_times_menu').hide();
+    }
   }
 };
 
