@@ -1,7 +1,7 @@
 # Be sure to restart your web server when you modify this file.
 
 # Specifies gem version of Rails to use when vendor/rails is not present
-RAILS_GEM_VERSION = '>=2.3.2' unless defined? RAILS_GEM_VERSION
+RAILS_GEM_VERSION = '>=2.3.3' unless defined? RAILS_GEM_VERSION
 
 # Bootstrap the Rails environment, frameworks, and default configuration
 require File.join(File.dirname(__FILE__), 'boot')
@@ -36,7 +36,8 @@ Rails::Initializer.run do |config|
 
   # optional gems
   config.gem 'RedCloth',     :version => '>= 4.0.0',   :lib => 'redcloth'
-
+  config.gem 'aws-s3', :lib => 'aws/s3'
+  
   # Only load the plugins named here, in the order given (default is alphabetical).
   # :all can be used as a placeholder for all plugins not explicitly named
   # config.plugins = [ :exception_notification, :ssl_requirement, :all ]
@@ -63,3 +64,6 @@ ConfigSystem.post_init
 
 # Merge database & config.yml into AppConfig
 ConfigSystem.load_config
+
+require 'acts_as_ferret'
+ActsAsFerret.index_dir = "#{RAILS_ROOT}#{AppConfig.ferret_index_path}"

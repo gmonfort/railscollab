@@ -30,8 +30,19 @@ class Company < ActiveRecord::Base
   has_many :auto_assign_users, :class_name => 'User', :foreign_key => 'company_id', :conditions => ['auto_assign = ?', true]
 
   has_and_belongs_to_many :projects,  :join_table => :project_companies
-  
-  has_attached_file :logo, :styles => { :thumb => "50x50" }, :default_url => ''
+
+	has_attached_file :logo, {
+		:styles => { :thumb => "50x50" },
+		:storage => AppConfig.attach_to_s3 ? :s3 : :filesystem,
+		:default_url => ''
+	}.merge(AppConfig.attach_to_s3 ? {
+		:s3_credentials => {
+			:access_key_id => AppConfig.s3_access_key,
+			:secret_access_key => AppConfig.s3_secret_key
+		},
+		:path => ":attachment/:id/:style.:extension",
+		:bucket => "#{AppConfig.s3_bucket_prefix}company_logo"
+	} : {})
 
   before_create :process_params
   before_update :process_update_params

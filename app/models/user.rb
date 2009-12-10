@@ -44,9 +44,20 @@ class User < ActiveRecord::Base
   has_many :finished_projects, :through => :project_users, :source => :project, :conditions => 'projects.completed_on IS NOT NULL', :order => 'projects.completed_on DESC'
 
   has_and_belongs_to_many :subscriptions, :class_name => 'ProjectMessage', :association_foreign_key => 'message_id', :join_table => :message_subscriptions
-  
-  has_attached_file :avatar, :styles => { :thumb => "50x50" }, :default_url => ''
-  
+	
+	has_attached_file :avatar, {
+		:styles => { :thumb => "50x50" },
+		:storage => AppConfig.attach_to_s3 ? :s3 : :filesystem,
+		:default_url => ''
+	}.merge(AppConfig.attach_to_s3 ? {
+		:s3_credentials => {
+			:access_key_id => AppConfig.s3_access_key,
+			:secret_access_key => AppConfig.s3_secret_key
+		},
+		:path => ":attachment/:id/:style.:extension",
+		:bucket => "#{AppConfig.s3_bucket_prefix}user_avatar"
+	} : {})
+	
   has_many :assigned_times, :class_name => 'ProjectTime', :foreign_key => 'assigned_to_user_id'
 
   def twister_array=(value)
@@ -169,8 +180,37 @@ class User < ActiveRecord::Base
     save(false)
   end
 
+	def identity_url
+		begin
+			return OpenIdAuthentication.normalize_url(read_attribute('identity_url'))
+		rescue
+			return nil
+		end
+	end
+	
+	def identity_url=(value)
+		begin
+			write_attribute('identity_url', OpenIdAuthentication.normalize_url(value))
+		rescue
+			write_attribute('identity_url', nil)
+		end
+	end
+	
+	def validate
+	    if self.identity_url != nil && self.identity_url.length > 0
+			if (self.identity_url.include?("@") || self.identity_url.include?(" "))
+				errors.add(:identity_url, "contains invalid characters")
+			end
+			begin
+				OpenIdAuthentication.normalize_url(self.identity_url)
+			rescue
+				errors.add(:identity_url, "is not a valid OpenID URL")
+			end
+		end
+	end
+
   def self.openid_login(identity_url)
-    user = first(:conditions => ['identity_url = ?', identity_url])
+    user = first(:conditions => ['identity_url = ?', OpenIdAuthentication.normalize_url(identity_url)])
     return nil if user.nil?
 
     now = Time.now.utc
